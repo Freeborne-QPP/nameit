@@ -40,16 +40,26 @@ npm start               # 启动后访问 http://localhost:3000
    curl -fsSL https://get.docker.com | sh
    ```
 
-3. 把本项目整个文件夹（`mai-app`）上传到服务器（可用宝塔面板的文件上传，或 `scp`/`rsync`）。
-4. 在 `mai-app` 目录里执行：
+3. 在服务器上克隆代码：
 
    ```bash
-   docker build -t zhengrong .
-   docker run -d --name zhengrong -p 3000:3000 -v $(pwd)/data:/app/data --restart=always zhengrong
+   git clone https://github.com/Freeborne-QPP/nameit.git
+   cd nameit
    ```
 
-5. 在云服务器控制台「防火墙 / 安全组」放行 3000 端口，然后访问 `http://服务器IP:3000`。
-6. 建议：在服务器控制台把域名解析到这台服务器，用 Nginx 或宝塔面板反代并开启 HTTPS，体验更好。
+4. 配置端口和管理员密码并启动（`.env` 不会被提交，改它不会和后续 `git pull` 冲突）：
+
+   ```bash
+   cp .env.example .env
+   nano .env                     # 改掉 ADMIN_PASSWORD；端口冲突就改 PORT
+   docker compose up -d --build
+   ```
+
+5. 在云服务器控制台「防火墙 / 安全组」放行 `.env` 里 `PORT` 对应的端口，然后访问 `http://服务器IP:端口`。
+6. 以后更新代码：`git pull` 然后 `docker compose up -d --build`。
+7. 建议：绑定域名并用 Nginx 反代 + HTTPS，体验更好。
+
+> 数据保存在服务器上的 `data` 目录（`app.db` 与 `config.json`），容器重建或更新都不会丢。想重置就删掉这两个文件后重启。
 
 ### 方案 B：Railway / Render（免费额度，国外节点，国内访问可能较慢）
 

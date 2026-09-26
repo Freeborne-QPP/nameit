@@ -1,0 +1,16 @@
+services:
+  nameit:
+    build: .
+    container_name: nameit
+    restart: unless-stopped
+    ports:
+      # 冒号左边是服务器对外端口（可改，例如 "8080:3000"）；右边是容器内端口，别动
+      - "${PORT:-3000}:3000"
+    environment:
+      - PORT=3000
+      - DATA_DIR=/app/data
+      # 仅首次启动时生效（会写入 data/config.json）；之后改密码请用网站里的「管理」
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-admin123456}
+    volumes:
+      # 关键：数据存在服务器本机目录，容器重建 / 更新代码都不会丢
+      - ./data:/app/data
