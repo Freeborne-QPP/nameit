@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>麦版 · 正赛阵容取名册</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">🍃</span>
+      <span class="title">麦版正赛阵容取名册</span>
+    </div>
+    <nav class="tabs">
+      <button class="tab active" data-view="browse">阵容总览</button>
+      <button class="tab" data-view="ranks">名字榜</button>
+    </nav>
+    <div class="user-area">
+      <span id="userInfo" class="user-info"></span>
+      <button id="btnAdmin" class="ghost hidden">管理</button>
+      <button id="btnLogin" class="ghost">登录 / 注册</button>
+      <button id="btnLogout" class="ghost hidden">退出</button>
+    </div>
+  </header>
+
+  <section class="filterbar">
+    <div class="filter-group">
+      <span class="fg-label">赛季</span>
+      <label class="chip"><input type="checkbox" data-season="S1"> S1</label>
+      <label class="chip"><input type="checkbox" data-season="S2"> S2</label>
+      <label class="chip"><input type="checkbox" data-season="S3"> S3</label>
+      <label class="chip"><input type="checkbox" data-season="S4" checked> S4</label>
+      <label class="chip"><input type="checkbox" data-season="S5" checked> S5</label>
+      <label class="chip"><input type="checkbox" data-season="S6" checked> S6</label>
+      <label class="chip"><input type="checkbox" data-season="S7" checked> S7</label>
+    </div>
+    <div class="filter-group">
+      <label class="chip"><input type="checkbox" id="fChampion"> 仅显示冠军</label>
+    </div>
+    <div class="filter-group grow">
+      <input type="text" id="fNumber" placeholder="编号搜索，如 12 / 148" class="inp">
+      <input type="text" id="fKeyword" placeholder="关键字搜索，如 灯玉" class="inp">
+      <select id="fSort" class="inp hidden">
+        <option value="key">按编号</option>
+        <option value="likes-desc">按点赞（多→少）</option>
+        <option value="likes-asc">按点赞（少→多）</option>
+      </select>
+    </div>
+  </section>
+
+  <main id="view-browse" class="view">
+    <div class="hint">点击任意阵容卡片可以给它取名、看已有名字、点赞。单击卡片展开详情。</div>
+    <div id="grid" class="grid"></div>
+    <div id="empty" class="empty hidden">没有符合条件的阵容</div>
+  </main>
+
+  <main id="view-ranks" class="view hidden">
+    <div id="rankList" class="ranklist"></div>
+    <div id="rankEmpty" class="empty hidden">还没有任何阵容拥有名字</div>
+  </main>
+
+  <!-- 阵容详情弹窗 -->
+  <div id="modal" class="modal-mask hidden">
+    <div class="modal">
+      <div class="modal-head">
+        <div>
+          <div class="modal-title" id="mKey"></div>
+          <div class="modal-sub" id="mText"></div>
+        </div>
+        <button class="modal-close" id="mClose">✕</button>
+      </div>
+      <div class="modal-body">
+        <div class="names-section">
+          <h3>已有的名字（<span id="mCount">0</span>）</h3>
+          <div id="mNames" class="names-list"></div>
+        </div>
+        <div class="add-section">
+          <h3>贡献一个名字</h3>
+          <div id="mNeedLogin" class="needlogin hidden">请先 <a href="#" id="mLoginLink">登录</a> 后再取名</div>
+          <form id="mAddForm" class="hidden">
+            <input type="text" id="mNameInput" placeholder="这个名字叫什么？" class="inp" maxlength="200">
+            <textarea id="mOriginInput" rows="2" placeholder="名字的由来（可不填）" class="inp"></textarea>
+            <button type="submit" class="btn primary">提交</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 登录/注册弹窗 -->
+  <div id="authModal" class="modal-mask hidden">
+    <div class="modal small">
+      <div class="modal-head">
+        <div class="modal-title">登录 / 注册</div>
+        <button class="modal-close" id="aClose">✕</button>
+      </div>
+      <div class="modal-body">
+        <form id="authForm">
+          <input type="text" id="aNick" placeholder="昵称（1-16 字符）" class="inp" autocomplete="username">
+          <input type="password" id="aPass" placeholder="密码（至少 4 位）" class="inp" autocomplete="current-password">
+          <div class="btnrow">
+            <button type="submit" id="aSubmitLogin" class="btn primary">登录</button>
+            <button type="button" id="aSubmitReg" class="btn">注册新号</button>
+          </div>
+          <div id="authMsg" class="errmsg"></div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- 管理弹窗 -->
+  <div id="adminModal" class="modal-mask hidden">
+    <div class="modal small">
+      <div class="modal-head">
+        <div class="modal-title">管理</div>
+        <button class="modal-close" id="amClose">✕</button>
+      </div>
+      <div class="modal-body">
+        <form id="adminLoginForm">
+          <input type="password" id="amPass" placeholder="管理员密码" class="inp" autocomplete="current-password">
+          <button type="submit" class="btn primary">进入管理</button>
+          <div id="amMsg" class="errmsg"></div>
+        </form>
+        <form id="adminPassForm" class="hidden" style="margin-top:16px;border-top:1px solid var(--line);padding-top:12px">
+          <div class="errmsg" style="margin-bottom:8px">当前为管理员模式，可以编辑/删除任意名字。</div>
+          <input type="password" id="ampOld" placeholder="原密码" class="inp">
+          <input type="password" id="ampNew" placeholder="新密码（至少 4 位）" class="inp">
+          <button type="submit" class="btn">修改管理员密码</button>
+          <div id="ampMsg" class="errmsg"></div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="toast hidden"></div>
+  <script src="app.js"></script>
+</body>
+</html>
