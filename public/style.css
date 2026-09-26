@@ -107,7 +107,7 @@ textarea.inp { resize: vertical; font-family: inherit; }
 .badge.champ { background: var(--gold); }
 .badge.sb { background: var(--blue); }
 .card-text { font-size: 15px; letter-spacing: .5px; line-height: 1.5; word-break: break-all; }
-.card-names { margin-top: 6px; font-size: 12px; color: var(--sub); }
+.card-names { margin-top: 6px; font-size: 12px; color: var(--sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .card-names.has { color: var(--grass-dark); font-weight: 600; }
 
 /* 名字榜 */

@@ -18,11 +18,11 @@ const state = {
   names: [],
   namesByKey: new Map(),
   me: { user: null, admin: false },
-  seasons: new Set(['S4', 'S5', 'S6', 'S7']),
+  seasons: new Set(['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7']),
   championOnly: false,
   number: '',
   keyword: '',
-  sort: 'key',
+  sort: 'likes-desc',
   activeView: 'browse',
   modalKey: null,
   editKeyword: '',
@@ -102,11 +102,26 @@ function cardHtml(l) {
   const badges = (l.isChampion ? '<span class="badge champ">冠</span>' : '') +
     (l.isShoubai ? '<span class="badge sb">败</span>' : '');
   const ncount = names.length;
+  const top = topNameOf(l.key);
+  const label = !ncount ? '还没有名字'
+    : (ncount === 1 ? `已有 ${escapeHtml(top.name)}` : `已有 ${escapeHtml(top.name)} 等 ${ncount} 个名字`);
   return `<div class="card ${l.isChampion ? 'champ' : ''}" data-key="${l.key}">
     <div class="card-head"><span class="card-key">${l.key}</span>${badges}</div>
     <div class="card-text">${escapeHtml(l.text)}</div>
-    <div class="card-names ${ncount ? 'has' : ''}">${ncount ? `已有 ${ncount} 个名字` : '还没有名字'}</div>
+    <div class="card-names ${ncount ? 'has' : ''}">${label}</div>
   </div>`;
+}
+
+// 点赞最多者优先；并列时取最晚发布的；再并列则用 id 派生的稳定顺序（相当于随机但不会每次刷新都变）
+const scramble = id => Math.imul(id, 2654435761) >>> 0;
+
+function topNameOf(key) {
+  const names = state.namesByKey.get(key) || [];
+  if (!names.length) return null;
+  return [...names].sort((a, b) =>
+    b.likes - a.likes ||
+    (Date.parse(b.createdAt) || 0) - (Date.parse(a.createdAt) || 0) ||
+    scramble(a.id) - scramble(b.id))[0];
 }
 
 function escapeHtml(s) {
@@ -129,6 +144,10 @@ function renderRanks() {
     list.sort((a, b) => likesOf(b.key) - likesOf(a.key) || a.key.localeCompare(b.key));
   } else if (state.sort === 'likes-asc') {
     list.sort((a, b) => likesOf(a.key) - likesOf(b.key) || a.key.localeCompare(b.key));
+  } else if (state.sort === 'time-desc') {
+    list.sort((a, b) => latestTimeOf(b.key) - latestTimeOf(a.key) || a.key.localeCompare(b.key));
+  } else if (state.sort === 'time-asc') {
+    list.sort((a, b) => latestTimeOf(a.key) - latestTimeOf(b.key) || a.key.localeCompare(b.key));
   } else {
     list.sort((a, b) => a.row - b.row || a.col - b.col);
   }
@@ -155,6 +174,11 @@ function renderRanks() {
 
 function likesOf(key) {
   return (state.namesByKey.get(key) || []).reduce((s, n) => s + n.likes, 0);
+}
+
+// 该阵容里最新一个名字的发布时间（用来按发布时间排序）
+function latestTimeOf(key) {
+  return (state.namesByKey.get(key) || []).reduce((t, n) => Math.max(t, Date.parse(n.createdAt) || 0), 0);
 }
 
 // ---------- 编辑阵容（管理员） ----------

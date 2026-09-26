@@ -28,9 +28,9 @@
   <section class="filterbar">
     <div class="filter-group">
       <span class="fg-label">赛季</span>
-      <label class="chip"><input type="checkbox" data-season="S1"> S1</label>
-      <label class="chip"><input type="checkbox" data-season="S2"> S2</label>
-      <label class="chip"><input type="checkbox" data-season="S3"> S3</label>
+      <label class="chip"><input type="checkbox" data-season="S1" checked> S0</label>
+      <label class="chip"><input type="checkbox" data-season="S2" checked> S1和S2</label>
+      <label class="chip"><input type="checkbox" data-season="S3" checked> S3</label>
       <label class="chip"><input type="checkbox" data-season="S4" checked> S4</label>
       <label class="chip"><input type="checkbox" data-season="S5" checked> S5</label>
       <label class="chip"><input type="checkbox" data-season="S6" checked> S6</label>
@@ -43,9 +43,11 @@
       <input type="text" id="fNumber" placeholder="编号搜索，如 12 / 148" class="inp">
       <input type="text" id="fKeyword" placeholder="关键字搜索，如 灯玉" class="inp">
       <select id="fSort" class="inp hidden">
-        <option value="key">按编号</option>
         <option value="likes-desc">按点赞（多→少）</option>
         <option value="likes-asc">按点赞（少→多）</option>
+        <option value="time-desc">按发布时间（新→旧）</option>
+        <option value="time-asc">按发布时间（旧→新）</option>
+        <option value="key">按编号</option>
       </select>
     </div>
   </section>
