@@ -15,6 +15,7 @@
     <nav class="tabs">
       <button class="tab active" data-view="browse">阵容总览</button>
       <button class="tab" data-view="ranks">名字榜</button>
+      <button class="tab hidden" id="tabEdit" data-view="edit">编辑阵容</button>
     </nav>
     <div class="user-area">
       <span id="userInfo" class="user-info"></span>
@@ -58,6 +59,35 @@
   <main id="view-ranks" class="view hidden">
     <div id="rankList" class="ranklist"></div>
     <div id="rankEmpty" class="empty hidden">还没有任何阵容拥有名字</div>
+  </main>
+
+  <!-- 管理员专属：编辑阵容 -->
+  <main id="view-edit" class="view hidden">
+    <div class="hint">
+      管理员专属。改错别字、修正阵容文本、勾选/取消「冠」「败」，或者给某一期追加新阵容 —— 保存后立即生效。
+      这里只改阵容内容，<b>已有的名字和点赞完全不受影响</b>；点「还原」即可恢复原始内容。
+      （追加到 S1-S3 的期号，需要在「阵容总览」里勾选对应赛季才看得到。）
+    </div>
+
+    <section class="edit-sec">
+      <h3>追加新阵容</h3>
+      <div class="edit-add-row">
+        <input type="number" id="eRow" class="inp slim" min="1" placeholder="期号，如 148">
+        <input type="text" id="eText" class="inp grow" maxlength="100" placeholder="新阵容文本，如 灯玉 草菇 狙豌 奶坚 若金">
+        <label class="chip"><input type="checkbox" id="eChamp"> 冠军</label>
+        <label class="chip"><input type="checkbox" id="eSb"> 首败</label>
+        <button class="btn primary" id="eAdd">添加</button>
+      </div>
+      <div id="eAddMsg" class="errmsg"></div>
+    </section>
+
+    <section class="edit-sec">
+      <h3>修改已有阵容</h3>
+      <input type="text" id="eSearch" class="inp" placeholder="输入编号或文字搜索，如 148 / 灯玉">
+      <div id="editList" class="edit-list"></div>
+      <div id="editEmpty" class="empty hidden">没有找到匹配的阵容</div>
+      <div id="editMore" class="empty hidden">结果太多，只显示前 100 条，请用搜索缩小范围</div>
+    </section>
   </main>
 
   <!-- 阵容详情弹窗 -->

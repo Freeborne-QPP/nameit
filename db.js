@@ -33,6 +33,20 @@ function openDb(dataDir) {
     );
     CREATE INDEX IF NOT EXISTS idx_names_lineup ON names(lineup_key);
     CREATE INDEX IF NOT EXISTS idx_likes_name ON likes(name_id);
+    -- 阵容覆盖层：管理员在网页上的修改只存这里，绝不改写 lineups.json
+    -- is_new = 1 表示这是管理员新增的阵容（原始数据里没有）
+    CREATE TABLE IF NOT EXISTS lineup_edits (
+      key TEXT PRIMARY KEY,
+      text TEXT NOT NULL,
+      is_champion INTEGER NOT NULL DEFAULT 0,
+      is_shoubai INTEGER NOT NULL DEFAULT 0,
+      is_new INTEGER NOT NULL DEFAULT 0,
+      row INTEGER NOT NULL,
+      col INTEGER NOT NULL,
+      season TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_lineup_edits_row ON lineup_edits(row);
   `);
   return db;
 }

@@ -5,6 +5,7 @@ const crypto = require('crypto');
 const express = require('express');
 const { openDb, loadConfig } = require('./db');
 const { parseSession, createSession, hashPassword, SECRET_KEY, SESSION_KEY } = require('./auth');
+const { normSearch } = require('./normalize');
 
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, 'data');
 const PORT = process.env.PORT || 3000;
@@ -18,7 +19,42 @@ if (!fs.existsSync(LINEUPS_FILE)) {
   process.exit(1);
 }
 const lineupData = JSON.parse(fs.readFileSync(LINEUPS_FILE, 'utf8'));
-const lineupByKey = new Map(lineupData.lineups.map(l => [l.key, l]));
+// 原始阵容快照：用于「还原」，也是重建内存数据的基准
+const baseLineups = lineupData.lineups.map(l => ({ ...l }));
+const baseByKey = new Map(baseLineups.map(l => [l.key, l]));
+const baseRows = new Set(baseLineups.map(l => l.row));
+let lineupByKey = new Map();
+
+// 把 SQLite 里的「覆盖层」合并进内存阵容数据：
+// - 已存在的阵容：覆盖文本与冠军/首败标记（key 不变，所以名字和点赞都还在）
+// - is_new 的阵容：追加进去
+function rebuildLineups() {
+  const byKey = new Map(baseLineups.map(l => [l.key, { ...l }]));
+  const extras = [];
+  for (const e of db.prepare('SELECT * FROM lineup_edits').all()) {
+    if (e.is_new) {
+      extras.push({
+        key: e.key, row: e.row, col: e.col, raw: e.text, text: e.text,
+        search: normSearch(e.text), season: e.season,
+        isChampion: !!e.is_champion, isShoubai: !!e.is_shoubai,
+        isNew: true, edited: true,
+      });
+    } else {
+      const l = byKey.get(e.key);
+      if (!l) continue;
+      l.text = e.text;
+      l.search = normSearch(e.text);
+      l.isChampion = !!e.is_champion;
+      l.isShoubai = !!e.is_shoubai;
+      l.edited = true;
+    }
+  }
+  const all = [...byKey.values(), ...extras];
+  all.sort((a, b) => a.row - b.row || a.col - b.col);
+  lineupData.lineups = all;
+  lineupByKey = new Map(all.map(l => [l.key, l]));
+}
+rebuildLineups();
 
 const app = express();
 app.use(express.json({ limit: '64kb' }));
@@ -221,6 +257,76 @@ app.post('/api/admin/password', (req, res) => {
   config.adminPassHash = crypto.scryptSync(next, salt, 32).toString('hex');
   const p = path.join(DATA_DIR, 'config.json');
   fs.writeFileSync(p, JSON.stringify(config, null, 2), { mode: 0o600 });
+  res.json({ ok: true });
+});
+
+// ---------- 管理：阵容内容编辑 ----------
+function requireAdmin(req, res) {
+  if (!req.session || !req.session.admin) {
+    res.status(403).json({ error: '需要管理员权限' });
+    return false;
+  }
+  return true;
+}
+
+function readLineupText(body) {
+  const text = String(body.text == null ? '' : body.text).trim();
+  if (!text) return { error: '阵容文本不能为空' };
+  if (text.length > 100) return { error: '阵容文本过长（最多 100 字）' };
+  return { text };
+}
+
+// 修改已有阵容的文本 / 冠军 / 首败标记
+app.put('/api/admin/lineups/:key', (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  const key = req.params.key;
+  const base = baseByKey.get(key);
+  if (!base) return res.status(404).json({ error: '阵容不存在' });
+  const parsed = readLineupText(req.body);
+  if (parsed.error) return res.status(400).json({ error: parsed.error });
+  db.prepare(`
+    INSERT INTO lineup_edits (key, text, is_champion, is_shoubai, is_new, row, col, season, updated_at)
+    VALUES (?,?,?,?,0,?,?,?,?)
+    ON CONFLICT(key) DO UPDATE SET
+      text = excluded.text,
+      is_champion = excluded.is_champion,
+      is_shoubai = excluded.is_shoubai,
+      is_new = 0,
+      updated_at = excluded.updated_at
+  `).run(key, parsed.text, req.body.isChampion ? 1 : 0, req.body.isShoubai ? 1 : 0,
+    base.row, base.col, base.season, new Date().toISOString());
+  rebuildLineups();
+  res.json({ lineup: lineupByKey.get(key) });
+});
+
+// 给某一期追加一个新阵容（自动接在该期末尾）
+app.post('/api/admin/lineups', (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  const row = Number(req.body.row);
+  if (!Number.isInteger(row) || !baseRows.has(row)) {
+    return res.status(400).json({ error: '期号不存在，请填写已有的期号' });
+  }
+  const parsed = readLineupText(req.body);
+  if (parsed.error) return res.status(400).json({ error: parsed.error });
+  const season = baseLineups.find(l => l.row === row).season;
+  const col = Math.max(0, ...lineupData.lineups.filter(l => l.row === row).map(l => l.col)) + 1;
+  const key = `${row}-${col}`;
+  if (lineupByKey.has(key)) return res.status(400).json({ error: '编号冲突，请重试' });
+  db.prepare(`
+    INSERT INTO lineup_edits (key, text, is_champion, is_shoubai, is_new, row, col, season, updated_at)
+    VALUES (?,?,?,?,1,?,?,?,?)
+  `).run(key, parsed.text, req.body.isChampion ? 1 : 0, req.body.isShoubai ? 1 : 0,
+    row, col, season, new Date().toISOString());
+  rebuildLineups();
+  res.json({ lineup: lineupByKey.get(key) });
+});
+
+// 还原：删掉这条覆盖记录（已有阵容恢复原文；新增阵容被移除）
+app.delete('/api/admin/lineups/:key', (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  const info = db.prepare('DELETE FROM lineup_edits WHERE key = ?').run(req.params.key);
+  if (!info.changes) return res.status(404).json({ error: '这条阵容没有修改记录' });
+  rebuildLineups();
   res.json({ ok: true });
 });
 

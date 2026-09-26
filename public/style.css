@@ -171,6 +171,25 @@ textarea.inp { resize: vertical; font-family: inherit; }
 .errmsg { color: var(--danger); font-size: 13px; margin-top: 8px; min-height: 0; }
 .btnrow { display: flex; gap: 8px; margin-top: 4px; }
 
+/* 编辑阵容（管理员） */
+.edit-sec {
+  background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+  padding: 14px 16px; margin-bottom: 16px;
+}
+.edit-sec h3 { font-size: 14px; color: var(--sub); margin: 0 0 10px; }
+.edit-add-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.inp.slim { width: 130px; }
+.inp.grow { flex: 1; min-width: 220px; }
+.edit-list { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.edit-item {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; background: #fff;
+}
+.edit-item .edit-key { width: 96px; font-size: 13px; font-weight: 600; color: var(--sub); }
+.edit-item .edit-text { flex: 1; min-width: 200px; }
+.badge.new { background: var(--grass); }
+.badge.edited { background: #e08a2e; }
+
 /* 提示 */
 .toast {
   position: fixed; left: 50%; bottom: 40px; transform: translateX(-50%);

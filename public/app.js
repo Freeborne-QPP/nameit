@@ -25,6 +25,7 @@ const state = {
   sort: 'key',
   activeView: 'browse',
   modalKey: null,
+  editKeyword: '',
 };
 
 async function api(url, opts = {}) {
@@ -92,6 +93,7 @@ function filterLineups() {
 // ---------- 渲染 ----------
 function render() {
   if (state.activeView === 'browse') renderBrowse();
+  else if (state.activeView === 'edit') renderEdit();
   else renderRanks();
 }
 
@@ -153,6 +155,70 @@ function renderRanks() {
 
 function likesOf(key) {
   return (state.namesByKey.get(key) || []).reduce((s, n) => s + n.likes, 0);
+}
+
+// ---------- 编辑阵容（管理员） ----------
+function renderEdit() {
+  const kw = norm(state.editKeyword.trim());
+  let list = state.lineups.filter(l => !kw || l.search.includes(kw) || l.key.includes(kw));
+  const tooMany = list.length > 100;
+  if (tooMany) list = list.slice(0, 100);
+  $('#editMore').classList.toggle('hidden', !tooMany);
+  $('#editEmpty').classList.toggle('hidden', list.length > 0);
+  const wrap = $('#editList');
+  wrap.innerHTML = list.map(editItemHtml).join('');
+  bindEditItems(wrap);
+}
+
+function editItemHtml(l) {
+  const tag = l.isNew
+    ? '<span class="badge new">新增</span>'
+    : (l.edited ? '<span class="badge edited">已改</span>' : '');
+  return `<div class="edit-item" data-key="${l.key}">
+    <div class="edit-key">${l.key} ${tag}</div>
+    <input class="inp edit-text" value="${escapeHtml(l.text)}" maxlength="100">
+    <label class="chip"><input type="checkbox" class="edit-champ" ${l.isChampion ? 'checked' : ''}> 冠</label>
+    <label class="chip"><input type="checkbox" class="edit-sb" ${l.isShoubai ? 'checked' : ''}> 败</label>
+    <button class="btn small primary act-save">保存</button>
+    <button class="btn small act-reset ${l.edited ? '' : 'hidden'}">还原</button>
+  </div>`;
+}
+
+function bindEditItems(root) {
+  root.querySelectorAll('.edit-item').forEach(item => {
+    const key = item.dataset.key;
+    item.querySelector('.act-save').addEventListener('click', async () => {
+      const text = item.querySelector('.edit-text').value.trim();
+      if (!text) { toast('阵容文本不能为空'); return; }
+      try {
+        await api(`/api/admin/lineups/${encodeURIComponent(key)}`, {
+          method: 'PUT',
+          body: {
+            text,
+            isChampion: item.querySelector('.edit-champ').checked,
+            isShoubai: item.querySelector('.edit-sb').checked,
+          },
+        });
+        await reloadLineups();
+        toast('已保存，立即生效');
+      } catch (e) { toast(e.message); }
+    });
+    item.querySelector('.act-reset').addEventListener('click', async () => {
+      if (!confirm('把这条阵容还原成原始内容？')) return;
+      try {
+        await api(`/api/admin/lineups/${encodeURIComponent(key)}`, { method: 'DELETE' });
+        await reloadLineups();
+        toast('已还原');
+      } catch (e) { toast(e.message); }
+    });
+  });
+}
+
+// 只重新拉阵容数据（名字、点赞不受影响），保证页面与服务器一致
+async function reloadLineups() {
+  const l = await api('/api/lineups');
+  state.lineups = l.lineups;
+  render();
 }
 
 // ---------- 名字条目 ----------
@@ -311,9 +377,21 @@ function updateUserBar() {
   $('#btnLogin').classList.toggle('hidden', !!(me.user || me.admin));
   $('#btnLogout').classList.toggle('hidden', !(me.user || me.admin));
   $('#btnAdmin').classList.toggle('hidden', me.admin);
+  $('#tabEdit').classList.toggle('hidden', !me.admin);
+  if (!me.admin && state.activeView === 'edit') switchView('browse');
   $('#mAddForm').classList.toggle('hidden', !me.user);
   $('#mNeedLogin').classList.toggle('hidden', !!me.user || !state.modalKey);
   if (state.modalKey) renderModalNames();
+}
+
+function switchView(name) {
+  state.activeView = name;
+  $$('.tab').forEach(x => x.classList.toggle('active', x.dataset.view === name));
+  $('#view-browse').classList.toggle('hidden', name !== 'browse');
+  $('#view-ranks').classList.toggle('hidden', name !== 'ranks');
+  $('#view-edit').classList.toggle('hidden', name !== 'edit');
+  $('#fSort').classList.toggle('hidden', name !== 'ranks');
+  render();
 }
 
 function openAuth() {
@@ -349,14 +427,7 @@ function openAdmin() {
 
 // ---------- 事件绑定 ----------
 function bindEvents() {
-  $$('.tab').forEach(t => t.addEventListener('click', () => {
-    state.activeView = t.dataset.view;
-    $$('.tab').forEach(x => x.classList.toggle('active', x === t));
-    $('#view-browse').classList.toggle('hidden', state.activeView !== 'browse');
-    $('#view-ranks').classList.toggle('hidden', state.activeView !== 'ranks');
-    $('#fSort').classList.toggle('hidden', state.activeView !== 'ranks');
-    render();
-  }));
+  $$('.tab').forEach(t => t.addEventListener('click', () => switchView(t.dataset.view)));
 
   $$('[data-season]').forEach(cb => cb.addEventListener('change', () => {
     if (cb.checked) state.seasons.add(cb.dataset.season);
@@ -414,7 +485,7 @@ function bindEvents() {
       $('#adminModal').classList.add('hidden');
       updateUserBar();
       toast('已进入管理模式');
-      refreshViews();
+      switchView('edit');
     } catch (err) { $('#amMsg').textContent = err.message; }
   });
   $('#adminPassForm').addEventListener('submit', async e => {
@@ -424,6 +495,26 @@ function bindEvents() {
       toast('管理员密码已修改');
       $('#ampOld').value = ''; $('#ampNew').value = '';
     } catch (err) { $('#ampMsg').textContent = err.message; }
+  });
+
+  // 编辑阵容（管理员）
+  $('#eSearch').addEventListener('input', e => { state.editKeyword = e.target.value; renderEdit(); });
+  $('#eAdd').addEventListener('click', async () => {
+    const row = Number($('#eRow').value);
+    const text = $('#eText').value.trim();
+    $('#eAddMsg').textContent = '';
+    if (!Number.isInteger(row) || row < 1) { $('#eAddMsg').textContent = '请填写正确的期号'; return; }
+    if (!text) { $('#eAddMsg').textContent = '请填写阵容文本'; return; }
+    try {
+      await api('/api/admin/lineups', {
+        method: 'POST',
+        body: { row, text, isChampion: $('#eChamp').checked, isShoubai: $('#eSb').checked },
+      });
+      $('#eRow').value = ''; $('#eText').value = '';
+      $('#eChamp').checked = false; $('#eSb').checked = false;
+      await reloadLineups();
+      toast('新阵容已添加，立即生效');
+    } catch (e) { $('#eAddMsg').textContent = e.message; }
   });
 }
 

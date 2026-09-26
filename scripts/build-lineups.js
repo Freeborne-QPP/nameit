@@ -2,15 +2,10 @@
 const XLSX = require('xlsx');
 const fs = require('fs');
 const path = require('path');
+const { clean, normSearch } = require('../normalize');
 
 const FILE = 'c:\\Users\\asus\\.trae-cn\\attachments\\6ab788c4e168ada1b4f53b56\\8a9e28cd-42e9-4d81-8b4d-c937a1ac6fec_d4392c4d-46d5-4f81-8bfc-2d2f465ec575_正赛阵容大全（西域版）.xlsx';
 const OUT = path.join(__dirname, '..', 'data', 'lineups.json');
-
-// 数据清洗：缠→草 盏/花→金 晶/钻→若 胖→坚 竹→奶
-const CLEAN = { '缠': '草', '盏': '金', '花': '金', '晶': '若', '钻': '若', '胖': '坚', '竹': '奶' };
-function clean(s) {
-  return [...String(s)].map(c => CLEAN[c] || c).join('');
-}
 
 // 赛季映射
 function seasonOf(row) {
@@ -24,11 +19,7 @@ function seasonOf(row) {
   return 'S?';
 }
 
-// 搜索归一化：无视标点；缠/水/草 同字；金/盏/花 同字；坚/胖 同字；若/晶/钻 同字；奶/竹 同字；豌/狙 同字
-function normSearch(s) {
-  const EXTRA = { '水': '草', '豌': '狙' };
-  return [...clean(s)].map(c => EXTRA[c] || c).join('').replace(/[^\u4e00-\u9fa5A-Za-z0-9]/g, '');
-}
+// 搜索归一化（normSearch）见根目录 normalize.js，与服务器共用
 
 const wb = XLSX.readFile(FILE);
 const main = XLSX.utils.sheet_to_json(wb.Sheets['S0-S6大麦正赛'], { header: 1 });
