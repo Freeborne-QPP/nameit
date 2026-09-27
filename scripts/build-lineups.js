@@ -7,10 +7,11 @@ const { clean, normSearch } = require('../normalize');
 const FILE = 'c:\\Users\\asus\\.trae-cn\\attachments\\6ab788c4e168ada1b4f53b56\\8a9e28cd-42e9-4d81-8b4d-c937a1ac6fec_d4392c4d-46d5-4f81-8bfc-2d2f465ec575_正赛阵容大全（西域版）.xlsx';
 const OUT = path.join(__dirname, '..', 'data', 'lineups.json');
 
-// 赛季映射
+// 赛季映射（与源表一致：1-25 期是 S0 季前赛）
 function seasonOf(row) {
-  if (row >= 1 && row <= 25) return 'S1';
-  if (row >= 26 && row <= 75) return 'S2';
+  if (row >= 1 && row <= 25) return 'S0';
+  if (row >= 26 && row <= 50) return 'S1';
+  if (row >= 51 && row <= 75) return 'S2';
   if (row >= 76 && row <= 100) return 'S3';
   if (row >= 101 && row <= 150) return 'S4';
   if (row >= 151 && row <= 175) return 'S5';

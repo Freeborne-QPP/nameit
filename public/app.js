@@ -18,7 +18,7 @@ const state = {
   names: [],
   namesByKey: new Map(),
   me: { user: null, admin: false },
-  seasons: new Set(['S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7']),
+  seasons: new Set(['S0', 'S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7']),
   championOnly: false,
   number: '',
   keyword: '',
@@ -172,8 +172,9 @@ function renderRanks() {
   bindNameActions(wrap);
 }
 
+// 阵容的点赞数：取该阵容里最高的一条名字的点赞（不是求和）
 function likesOf(key) {
-  return (state.namesByKey.get(key) || []).reduce((s, n) => s + n.likes, 0);
+  return (state.namesByKey.get(key) || []).reduce((m, n) => Math.max(m, n.likes), 0);
 }
 
 // 该阵容里最新一个名字的发布时间（用来按发布时间排序）
