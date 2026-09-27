@@ -10,7 +10,7 @@
   <!-- 小彩蛋：1% 概率进来先只看到这张图，5 秒后自动进入网站 -->
   <div id="easterEgg" class="easter hidden"><img src="easter.jpg" alt=""></div>
   <script>
-    if (Math.random() < 0.01) {
+    if (Math.random() < 0.05) {
       var egg = document.getElementById('easterEgg');
       egg.classList.remove('hidden');
       setTimeout(function () { egg.remove(); }, 5000);
