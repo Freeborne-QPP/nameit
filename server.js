@@ -23,11 +23,12 @@ const lineupData = JSON.parse(fs.readFileSync(LINEUPS_FILE, 'utf8'));
 const baseLineups = lineupData.lineups.map(l => ({ ...l }));
 const baseByKey = new Map(baseLineups.map(l => [l.key, l]));
 const baseRows = new Set(baseLineups.map(l => l.row));
+const baseSeasonByRow = new Map(baseLineups.map(l => [l.row, l.season]));
 let lineupByKey = new Map();
 
 // 把 SQLite 里的「覆盖层」合并进内存阵容数据：
 // - 已存在的阵容：覆盖文本与冠军/首败标记（key 不变，所以名字和点赞都还在）
-// - is_new 的阵容：追加进去
+// - is_new 的阵容：追加进去（赛季按当前基础数据里的期号实时取，避免赛季划分调整后留旧值）
 function rebuildLineups() {
   const byKey = new Map(baseLineups.map(l => [l.key, { ...l }]));
   const extras = [];
@@ -35,7 +36,7 @@ function rebuildLineups() {
     if (e.is_new) {
       extras.push({
         key: e.key, row: e.row, col: e.col, raw: e.text, text: e.text,
-        search: normSearch(e.text), season: e.season,
+        search: normSearch(e.text), season: baseSeasonByRow.get(e.row) || e.season,
         isChampion: !!e.is_champion, isShoubai: !!e.is_shoubai,
         isNew: true, edited: true,
       });
