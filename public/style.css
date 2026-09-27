@@ -86,6 +86,14 @@ textarea.inp { resize: vertical; font-family: inherit; }
 .view { padding: 16px 24px 60px; max-width: 1500px; margin: 0 auto; }
 .hint { font-size: 13px; color: var(--sub); margin: 4px 0 14px; }
 .hidden { display: none !important; }
+
+/* 小彩蛋：1% 概率进来先只显示这张图（5 秒后移除） */
+.easter {
+  position: fixed; inset: 0; z-index: 9999;
+  display: flex; align-items: center; justify-content: center;
+  background: #fff;
+}
+.easter img { width: min(92vw, 900px); height: auto; max-height: 88vh; object-fit: contain; }
 .empty { text-align: center; color: var(--sub); padding: 60px 0; font-size: 15px; }
 
 /* 卡片网格 */
