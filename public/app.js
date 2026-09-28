@@ -401,7 +401,7 @@ function updateUserBar() {
   $('#userInfo').textContent = me.admin ? '（管理员）' : (me.user ? `你好，${me.user.nickname}` : '');
   $('#btnLogin').classList.toggle('hidden', !!(me.user || me.admin));
   $('#btnLogout').classList.toggle('hidden', !(me.user || me.admin));
-  $('#btnAdmin').classList.toggle('hidden', me.admin);
+  $('#btnAdmin').classList.remove('hidden');
   $('#tabEdit').classList.toggle('hidden', !me.admin);
   if (!me.admin && state.activeView === 'edit') switchView('browse');
   $('#mAddForm').classList.toggle('hidden', !me.user);
