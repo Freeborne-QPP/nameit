@@ -5,7 +5,7 @@ const $ = sel => document.querySelector(sel);
 const $$ = sel => [...document.querySelectorAll(sel)];
 
 const CLEAN = { '缠': '草', '盏': '金', '花': '金', '晶': '若', '钻': '若', '胖': '坚', '竹': '奶' };
-const EXTRA = { '水': '草', '豌': '狙' };
+const EXTRA = { '水': '草', '豌': '狙', '舟': '灯', '锔': '曾','信长': '双', 'RV': '雷', '丨': '麦', '羽': '藤' };
 
 // 搜索归一化：与后端一致（清洗 + 同字替换 + 去标点）
 function norm(s) {
@@ -114,14 +114,27 @@ function cardHtml(l) {
 
 // 点赞最多者优先；并列时取最晚发布的；再并列则用 id 派生的稳定顺序（相当于随机但不会每次刷新都变）
 const scramble = id => Math.imul(id, 2654435761) >>> 0;
+const timeOf = n => Date.parse(n.createdAt) || 0;
+const byLikesDesc = (a, b) => b.likes - a.likes || timeOf(b) - timeOf(a) || scramble(a.id) - scramble(b.id);
+const byTimeDesc = (a, b) => timeOf(b) - timeOf(a) || b.id - a.id;
+const byTimeAsc = (a, b) => timeOf(a) - timeOf(b) || a.id - b.id;
 
 function topNameOf(key) {
   const names = state.namesByKey.get(key) || [];
   if (!names.length) return null;
-  return [...names].sort((a, b) =>
-    b.likes - a.likes ||
-    (Date.parse(b.createdAt) || 0) - (Date.parse(a.createdAt) || 0) ||
-    scramble(a.id) - scramble(b.id))[0];
+  return [...names].sort(byLikesDesc)[0];
+}
+
+// 「名字榜」里每个阵容内部的名字顺序，跟随顶部的排序选择
+function sortNamesOf(key) {
+  const names = state.namesByKey.get(key) || [];
+  switch (state.sort) {
+    case 'likes-desc': return [...names].sort(byLikesDesc);
+    case 'likes-asc': return [...names].sort((a, b) => a.likes - b.likes || byTimeDesc(a, b));
+    case 'time-desc': return [...names].sort(byTimeDesc);
+    case 'time-asc': return [...names].sort(byTimeAsc);
+    default: return names; // 按编号：保持默认顺序（发布先后）
+  }
 }
 
 function escapeHtml(s) {
@@ -155,7 +168,7 @@ function renderRanks() {
   if (!list.length) { wrap.innerHTML = ''; $('#rankEmpty').classList.remove('hidden'); return; }
   $('#rankEmpty').classList.add('hidden');
   wrap.innerHTML = list.map(l => {
-    const names = state.namesByKey.get(l.key) || [];
+    const names = sortNamesOf(l.key);
     const badges = (l.isChampion ? '<span class="badge champ">冠</span>' : '') +
       (l.isShoubai ? '<span class="badge sb">败</span>' : '');
     return `<div class="rank-item" data-key="${l.key}">
