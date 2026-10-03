@@ -26,11 +26,13 @@ const baseRows = new Set(baseLineups.map(l => l.row));
 const baseSeasonByRow = new Map(baseLineups.map(l => [l.row, l.season]));
 let lineupByKey = new Map();
 
-// 期号排序权重：数字期号按数值；R1-R20 这类字符串期号排在 100 与 101 之间
+// 期号排序权重：数字期号按数值；R1-R20 排在 100 与 101 之间，J1-J5 排在 300 与 301 之间
 function rowOrder(row) {
   if (typeof row === 'number') return row;
-  const m = /^R(\d+)$/.exec(String(row));
+  let m = /^R(\d+)$/.exec(String(row));
   if (m) return 100 + Number(m[1]) / 1000;
+  m = /^J(\d+)$/.exec(String(row));
+  if (m) return 300 + Number(m[1]) / 1000;
   const n = Number(row);
   return Number.isFinite(n) ? n : 0;
 }
