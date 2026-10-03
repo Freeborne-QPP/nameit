@@ -26,6 +26,15 @@ const baseRows = new Set(baseLineups.map(l => l.row));
 const baseSeasonByRow = new Map(baseLineups.map(l => [l.row, l.season]));
 let lineupByKey = new Map();
 
+// 期号排序权重：数字期号按数值；R1-R20 这类字符串期号排在 100 与 101 之间
+function rowOrder(row) {
+  if (typeof row === 'number') return row;
+  const m = /^R(\d+)$/.exec(String(row));
+  if (m) return 100 + Number(m[1]) / 1000;
+  const n = Number(row);
+  return Number.isFinite(n) ? n : 0;
+}
+
 // 把 SQLite 里的「覆盖层」合并进内存阵容数据：
 // - 已存在的阵容：覆盖文本与冠军/首败标记（key 不变，所以名字和点赞都还在）
 // - is_new 的阵容：追加进去（赛季按当前基础数据里的期号实时取，避免赛季划分调整后留旧值）
@@ -51,7 +60,7 @@ function rebuildLineups() {
     }
   }
   const all = [...byKey.values(), ...extras];
-  all.sort((a, b) => a.row - b.row || a.col - b.col);
+  all.sort((a, b) => rowOrder(a.row) - rowOrder(b.row) || a.col - b.col);
   lineupData.lineups = all;
   lineupByKey = new Map(all.map(l => [l.key, l]));
 }

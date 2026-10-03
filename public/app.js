@@ -18,7 +18,7 @@ const state = {
   names: [],
   namesByKey: new Map(),
   me: { user: null, admin: false },
-  seasons: new Set(['S0', 'S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7']),
+  seasons: new Set(['S0', 'S1', 'S2', 'S3', 'S4', 'S5', 'S6', 'S7', 'R']),
   championOnly: false,
   number: '',
   keyword: '',
@@ -78,10 +78,20 @@ function buildIndex() {
 }
 
 // ---------- 过滤 ----------
+// 期号排序权重：数字期号按数值；R1-R20 这类字符串期号排在 100 与 101 之间
+function rowOrder(row) {
+  if (typeof row === 'number') return row;
+  const m = /^R(\d+)$/.exec(String(row));
+  if (m) return 100 + Number(m[1]) / 1000;
+  const n = Number(row);
+  return Number.isFinite(n) ? n : 0;
+}
+
 function filterLineups() {
   const num = state.number.trim();
   const kw = norm(state.keyword.trim());
   return state.lineups.filter(l => {
+    if (!l.text) return false; // 暂时空的合法编号：不在总览显示
     if (!state.seasons.has(l.season)) return false;
     if (state.championOnly && !l.isChampion) return false;
     if (num && !String(l.row).includes(num)) return false;
@@ -162,7 +172,7 @@ function renderRanks() {
   } else if (state.sort === 'time-asc') {
     list.sort((a, b) => latestTimeOf(a.key) - latestTimeOf(b.key) || a.key.localeCompare(b.key));
   } else {
-    list.sort((a, b) => a.row - b.row || a.col - b.col);
+    list.sort((a, b) => rowOrder(a.row) - rowOrder(b.row) || a.col - b.col);
   }
   const wrap = $('#rankList');
   if (!list.length) { wrap.innerHTML = ''; $('#rankEmpty').classList.remove('hidden'); return; }
