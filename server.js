@@ -39,6 +39,32 @@ function rowOrder(row) {
 // 带 order 的条目（如场务）按指定位置排，其余按期号
 const orderOf = l => (l.order != null ? l.order : rowOrder(l.row));
 
+// 直播阵容：独立分类，排在最末（筛选里「直播阵容」默认不勾选）
+const LIVE_SEASON = 'LIVE';
+const LIVE_ORDER_BASE = 1e6;
+
+// 首次启动时放一个初始直播阵容（组成「星吸寒伞曾」、备注「40连擂」），
+// 并挂一条初始投稿名字「北极星」（需要作者，所以建一个「系统」账号来挂）
+function seedLiveLineups() {
+  const c = db.prepare('SELECT COUNT(*) AS c FROM live_lineups').get().c;
+  if (c) return;
+  const now = new Date().toISOString();
+  const key = 'live-' + crypto.randomBytes(6).toString('hex');
+  db.prepare('INSERT INTO live_lineups (key, text, remark, author_id, created_at, updated_at) VALUES (?,?,?,NULL,?,?)')
+    .run(key, '星吸寒伞曾', '40连擂', now, now);
+
+  let sys = db.prepare('SELECT id FROM users WHERE nickname = ?').get('系统');
+  if (!sys) {
+    const salt = crypto.randomBytes(16).toString('hex');
+    const info = db.prepare('INSERT INTO users (nickname, pass_hash, pass_salt, created_at) VALUES (?,?,?,?)')
+      .run('系统', hashPassword(crypto.randomBytes(16).toString('hex'), salt), salt, now);
+    sys = { id: Number(info.lastInsertRowid) };
+  }
+  db.prepare('INSERT INTO names (lineup_key, name, origin, author_id, created_at, updated_at) VALUES (?,?,?,?,?,?)')
+    .run(key, '北极星', '', sys.id, now, now);
+}
+seedLiveLineups();
+
 // 把 SQLite 里的「覆盖层」合并进内存阵容数据：
 // - 已存在的阵容：覆盖文本与冠军/首败标记（key 不变，所以名字和点赞都还在）
 // - is_new 的阵容：追加进去（赛季按当前基础数据里的期号实时取，避免赛季划分调整后留旧值）
@@ -64,6 +90,16 @@ function rebuildLineups() {
     }
   }
   const all = [...byKey.values(), ...extras];
+  // 直播阵容：没有编号，也没有独立标题，用阵容组成当展示名；挂在 lineups 末尾
+  db.prepare('SELECT * FROM live_lineups ORDER BY created_at ASC, key ASC').all().forEach((v, i) => {
+    all.push({
+      key: v.key, row: null, col: 1, label: v.text, text: v.text, raw: v.text,
+      search: normSearch(v.text), season: LIVE_SEASON,
+      isChampion: false, isShoubai: false,
+      isLive: true, remark: v.remark, authorId: v.author_id, createdAt: v.created_at,
+      order: LIVE_ORDER_BASE + i,
+    });
+  });
   all.sort((a, b) => orderOf(a) - orderOf(b) || a.col - b.col);
   lineupData.lineups = all;
   lineupByKey = new Map(all.map(l => [l.key, l]));
@@ -342,6 +378,71 @@ app.delete('/api/admin/lineups/:key', (req, res) => {
   if (!info.changes) return res.status(404).json({ error: '这条阵容没有修改记录' });
   rebuildLineups();
   res.json({ ok: true });
+});
+
+// ---------- 直播阵容（独立于赛季；观众可添加、可删自己的，备注所有登录用户可改） ----------
+function liveEntry(key) {
+  const l = lineupByKey.get(key);
+  return l && l.isLive ? l : null;
+}
+function loggedIn(req) {
+  return !!(req.session && (req.session.uid || req.session.admin));
+}
+function isLiveOwner(req, l) {
+  if (req.session && req.session.admin) return true;
+  return !!(req.session && req.session.uid && l.authorId && l.authorId === req.session.uid);
+}
+
+app.post('/api/live-lineups', (req, res) => {
+  if (!loggedIn(req)) return res.status(401).json({ error: '请先登录后再添加直播阵容' });
+  const text = String(req.body.text == null ? '' : req.body.text).trim();
+  const remark = String(req.body.remark == null ? '' : req.body.remark).trim();
+  if (!text) return res.status(400).json({ error: '阵容组成不能为空' });
+  if (text.length > 100) return res.status(400).json({ error: '阵容组成过长（最多 100 字）' });
+  if (remark.length > 200) return res.status(400).json({ error: '备注过长（最多 200 字）' });
+  const key = 'live-' + crypto.randomBytes(6).toString('hex');
+  const now = new Date().toISOString();
+  db.prepare('INSERT INTO live_lineups (key, text, remark, author_id, created_at, updated_at) VALUES (?,?,?,?,?,?)')
+    .run(key, text, remark, req.session.admin ? null : req.session.uid, now, now);
+  rebuildLineups();
+  res.json({ lineup: lineupByKey.get(key) });
+});
+
+// 改备注：所有登录用户都能改；改阵容组成：只有添加者和管理员
+app.put('/api/live-lineups/:key', (req, res) => {
+  const l = liveEntry(req.params.key);
+  if (!l) return res.status(404).json({ error: '直播阵容不存在' });
+  if (!loggedIn(req)) return res.status(401).json({ error: '请先登录后再编辑' });
+  let text = l.text;
+  let remark = l.remark || '';
+  if (req.body.text != null) {
+    if (!isLiveOwner(req, l)) return res.status(403).json({ error: '只有添加者可以修改阵容组成' });
+    text = String(req.body.text).trim();
+    if (!text) return res.status(400).json({ error: '阵容组成不能为空' });
+    if (text.length > 100) return res.status(400).json({ error: '阵容组成过长（最多 100 字）' });
+  }
+  if (req.body.remark != null) {
+    remark = String(req.body.remark).trim();
+    if (remark.length > 200) return res.status(400).json({ error: '备注过长（最多 200 字）' });
+  }
+  db.prepare('UPDATE live_lineups SET text = ?, remark = ?, updated_at = ? WHERE key = ?')
+    .run(text, remark, new Date().toISOString(), req.params.key);
+  rebuildLineups();
+  res.json({ lineup: lineupByKey.get(req.params.key) });
+});
+
+app.delete('/api/live-lineups/:key', (req, res) => {
+  const l = liveEntry(req.params.key);
+  if (!l) return res.status(404).json({ error: '直播阵容不存在' });
+  if (!loggedIn(req)) return res.status(401).json({ error: '请先登录后再删除' });
+  if (!isLiveOwner(req, l)) return res.status(403).json({ error: '只能删除自己添加的直播阵容' });
+  const key = req.params.key;
+  const ids = db.prepare('SELECT id FROM names WHERE lineup_key = ?').all(key).map(r => r.id);
+  for (const id of ids) db.prepare('DELETE FROM likes WHERE name_id = ?').run(id);
+  db.prepare('DELETE FROM names WHERE lineup_key = ?').run(key);
+  db.prepare('DELETE FROM live_lineups WHERE key = ?').run(key);
+  rebuildLineups();
+  res.json({ ok: true, removedNames: ids.length });
 });
 
 // ---------- 静态资源 ----------

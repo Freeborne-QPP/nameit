@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>麦版 · 正赛阵容取名册</title>
+  <title>麦版 · 阵容取名册</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -22,7 +22,7 @@
   <header class="topbar">
     <div class="brand">
       <span class="logo">🍃</span>
-      <span class="title">麦版正赛阵容取名册</span>
+      <span class="title">麦版阵容取名册</span>
     </div>
     <nav class="tabs">
       <button class="tab active" data-view="browse">阵容总览</button>
@@ -50,6 +50,7 @@
       <label class="chip"><input type="checkbox" data-season="S7" checked> S7</label>
       <label class="chip"><input type="checkbox" data-season="R" checked> R</label>
       <label class="chip"><input type="checkbox" data-season="J" checked> 激情原版</label>
+      <label class="chip"><input type="checkbox" data-season="LIVE"> 直播阵容</label>
     </div>
     <div class="filter-group">
       <label class="chip"><input type="checkbox" id="fChampion"> 仅显示冠军</label>
@@ -68,7 +69,10 @@
   </section>
 
   <main id="view-browse" class="view">
-    <div class="hint">点击任意阵容卡片可以给它取名、看已有名字、点赞。单击卡片展开详情。</div>
+    <div class="hint">
+      点击任意阵容卡片可以给它取名、看已有名字、点赞。单击卡片展开详情。
+      <button class="btn small primary hidden" id="btnAddLive">+ 添加直播阵容</button>
+    </div>
     <div id="grid" class="grid"></div>
     <div id="empty" class="empty hidden">没有符合条件的阵容</div>
   </main>
@@ -118,6 +122,23 @@
         <button class="modal-close" id="mClose">✕</button>
       </div>
       <div class="modal-body">
+        <div id="mLive" class="live-block hidden">
+          <div class="live-remark-row">
+            <span class="live-label">备注</span>
+            <span id="mRemark" class="live-remark-text"></span>
+            <button class="btn small" id="mRemarkEdit">编辑备注</button>
+          </div>
+          <div id="mRemarkForm" class="hidden">
+            <input type="text" id="mRemarkInput" class="inp" maxlength="200" placeholder="备注（所有人可编辑）">
+            <div class="btnrow">
+              <button class="btn small primary" id="mRemarkSave">保存</button>
+              <button class="btn small" id="mRemarkCancel">取消</button>
+            </div>
+          </div>
+          <div id="mDelLiveWrap" class="btnrow hidden">
+            <button class="btn small danger" id="mDelLive">删除这个直播阵容</button>
+          </div>
+        </div>
         <div class="names-section">
           <h3>已有的名字（<span id="mCount">0</span>）</h3>
           <div id="mNames" class="names-list"></div>
@@ -131,6 +152,27 @@
             <button type="submit" class="btn primary">提交</button>
           </form>
         </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 添加直播阵容 -->
+  <div id="liveModal" class="modal-mask hidden">
+    <div class="modal small">
+      <div class="modal-head">
+        <div class="modal-title">添加直播阵容</div>
+        <button class="modal-close" id="lvClose">✕</button>
+      </div>
+      <div class="modal-body">
+        <div id="lvNeedLogin" class="needlogin hidden">请先 <a href="#" id="lvLoginLink">登录</a> 后再添加直播阵容</div>
+        <form id="lvForm" class="hidden">
+          <input type="text" id="lvText" class="inp" maxlength="100" placeholder="阵容组成">
+          <input type="text" id="lvRemark" class="inp" maxlength="200" placeholder="备注（可不填）">
+          <div class="btnrow">
+            <button type="submit" class="btn primary">添加</button>
+          </div>
+          <div id="lvMsg" class="errmsg"></div>
+        </form>
       </div>
     </div>
   </div>
@@ -187,7 +229,7 @@
         <div class="modal-title">更新公告</div>
       </div>
       <div class="modal-body">
-        <p class="notice-text">取名网站已支持S7加时赛的三支场务队伍，大家也可以投稿命名</p>
+        <p class="notice-text">取名网站已支持S7加时赛的三支场务队伍，并新增了「直播阵容」分类：任何登录用户都可以添加直播阵容、也能给它们投稿名字，大家也可以投稿命名</p>
         <div class="btnrow">
           <button class="btn primary" id="noticeOk">确定</button>
         </div>

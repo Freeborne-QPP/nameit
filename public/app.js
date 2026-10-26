@@ -77,6 +77,13 @@ function buildIndex() {
   }
 }
 
+// 把服务器返回的一条阵容（新增或改过）同步进本地列表
+function mergeLineup(l) {
+  const i = state.lineups.findIndex(x => x.key === l.key);
+  if (i >= 0) state.lineups[i] = l;
+  else state.lineups.push(l);
+}
+
 // ---------- 过滤 ----------
 // 期号排序权重：数字期号按数值；R1-R20 排在 100 与 101 之间，J1-J5 排在 300 与 301 之间
 function rowOrder(row) {
@@ -98,7 +105,8 @@ function filterLineups() {
     if (!l.text) return false; // 暂时空的合法编号：不在总览显示
     if (!state.seasons.has(l.season)) return false;
     if (state.championOnly && !l.isChampion) return false;
-    if (num && !String(l.row).includes(num)) return false;
+    // 直播阵容没有编号，编号搜索永远搜不到它（但可以用阵容组成搜索）
+    if (num && (l.isLive || !String(l.row).includes(num))) return false;
     if (kw && !l.search.includes(kw) && !norm(l.label || '').includes(kw)) return false;
     return true;
   });
@@ -113,12 +121,20 @@ function render() {
 
 function cardHtml(l) {
   const names = state.namesByKey.get(l.key) || [];
-  const badges = (l.isChampion ? '<span class="badge champ">冠</span>' : '') +
-    (l.isShoubai ? '<span class="badge sb">败</span>' : '');
   const ncount = names.length;
   const top = topNameOf(l.key);
   const label = !ncount ? '还没有名字'
     : (ncount === 1 ? `已有 ${escapeHtml(top.name)}` : `已有 ${escapeHtml(top.name)} 等 ${ncount} 个名字`);
+  if (l.isLive) {
+    // 直播阵容没有编号，阵容组成直接占标题位
+    return `<div class="card live" data-key="${l.key}">
+    <div class="card-head"><span class="live-title">${escapeHtml(l.text)}</span><span class="badge live">直播</span></div>
+    <div class="card-remark">备注：${escapeHtml(l.remark || '—')}</div>
+    <div class="card-names ${ncount ? 'has' : ''}">${label}</div>
+  </div>`;
+  }
+  const badges = (l.isChampion ? '<span class="badge champ">冠</span>' : '') +
+    (l.isShoubai ? '<span class="badge sb">败</span>' : '');
   return `<div class="card ${l.isChampion ? 'champ' : ''}" data-key="${l.key}">
     <div class="card-head"><span class="card-key">${escapeHtml(l.label || l.key)}</span>${badges}</div>
     <div class="card-text">${escapeHtml(l.text)}</div>
@@ -160,6 +176,8 @@ function renderBrowse() {
   const grid = $('#grid');
   grid.innerHTML = list.map(cardHtml).join('');
   $('#empty').classList.toggle('hidden', list.length > 0);
+  // 「添加直播阵容」只在该分类被勾选时露出（否则加了也看不见）
+  $('#btnAddLive').classList.toggle('hidden', !state.seasons.has('LIVE'));
   grid.querySelectorAll('.card').forEach(el => {
     el.addEventListener('click', () => openModal(el.dataset.key));
   });
@@ -185,9 +203,11 @@ function renderRanks() {
     const names = sortNamesOf(l.key);
     const badges = (l.isChampion ? '<span class="badge champ">冠</span>' : '') +
       (l.isShoubai ? '<span class="badge sb">败</span>' : '');
+    // 直播阵容没有编号，左边只标「直播」，组成放在下面，避免重复
+    const keyLine = l.isLive ? '<span class="badge live">直播</span>' : `${escapeHtml(l.label || l.key)} ${badges}`;
     return `<div class="rank-item" data-key="${l.key}">
       <div class="rank-side" data-open="${l.key}">
-        <div class="rank-key">${escapeHtml(l.label || l.key)} ${badges}</div>
+        <div class="rank-key">${keyLine}</div>
         <div class="rank-text">${escapeHtml(l.text)}</div>
       </div>
       <div class="rank-names">${names.map(n => nameItemHtml(n)).join('')}</div>
@@ -212,7 +232,8 @@ function latestTimeOf(key) {
 // ---------- 编辑阵容（管理员） ----------
 function renderEdit() {
   const kw = norm(state.editKeyword.trim());
-  let list = state.lineups.filter(l => !kw || l.search.includes(kw) || l.key.includes(kw));
+  // 直播阵容由观众自己管理（卡片里删改），不进管理员编辑列表
+  let list = state.lineups.filter(l => !l.isLive && (!kw || l.search.includes(kw) || l.key.includes(kw)));
   const tooMany = list.length > 100;
   if (tooMany) list = list.slice(0, 100);
   $('#editMore').classList.toggle('hidden', !tooMany);
@@ -390,10 +411,25 @@ function openModal(key) {
   const l = state.lineups.find(x => x.key === key);
   if (!l) return;
   state.modalKey = key;
-  $('#mKey').innerHTML = `${escapeHtml(l.label || l.key)} ${l.isChampion ? '<span class="badge champ">冠军</span>' : ''}${l.isShoubai ? ' <span class="badge sb">首败</span>' : ''}`;
-  $('#mText').textContent = l.text;
+  $('#mKey').innerHTML = l.isLive
+    ? `${escapeHtml(l.text)} <span class="badge live">直播</span>`
+    : `${escapeHtml(l.label || l.key)} ${l.isChampion ? '<span class="badge champ">冠军</span>' : ''}${l.isShoubai ? ' <span class="badge sb">首败</span>' : ''}`;
+  // 直播阵容的组成已经当标题了，副标题留空
+  $('#mText').textContent = l.isLive ? '' : l.text;
+  renderLiveBlock(l);
   renderModalNames();
   $('#modal').classList.remove('hidden');
+}
+
+// 直播阵容专属：备注（所有人可编辑）+ 删除（仅添加者/管理员）
+function renderLiveBlock(l) {
+  const isLive = !!l.isLive;
+  $('#mLive').classList.toggle('hidden', !isLive);
+  if (!isLive) return;
+  $('#mRemark').textContent = l.remark || '—';
+  $('#mRemarkForm').classList.add('hidden');
+  const mine = !!((state.me.admin) || (state.me.user && l.authorId === state.me.user.id));
+  $('#mDelLiveWrap').classList.toggle('hidden', !mine);
 }
 
 function renderModalNames() {
@@ -414,7 +450,11 @@ function renderModalNames() {
 function refreshViews() {
   buildIndex();
   render();
-  if (state.modalKey && $('#modal') && !$('#modal').classList.contains('hidden')) renderModalNames();
+  if (state.modalKey && $('#modal') && !$('#modal').classList.contains('hidden')) {
+    const l = state.lineups.find(x => x.key === state.modalKey);
+    if (l) renderLiveBlock(l);
+    renderModalNames();
+  }
 }
 
 function closeModal() {
@@ -452,6 +492,15 @@ function openAuth() {
 }
 function closeAuth() { $('#authModal').classList.add('hidden'); }
 
+// 添加直播阵容（需登录；「删除自己添加的」需要身份，所以不强求匿名）
+function openLiveAdd() {
+  $('#lvMsg').textContent = '';
+  const ok = !!(state.me.user || state.me.admin);
+  $('#lvNeedLogin').classList.toggle('hidden', ok);
+  $('#lvForm').classList.toggle('hidden', !ok);
+  $('#liveModal').classList.remove('hidden');
+}
+
 async function doAuth(mode) {
   const nickname = $('#aNick').value.trim();
   const password = $('#aPass').value;
@@ -482,8 +531,17 @@ function bindEvents() {
   $$('.tab').forEach(t => t.addEventListener('click', () => switchView(t.dataset.view)));
 
   $$('[data-season]').forEach(cb => cb.addEventListener('change', () => {
-    if (cb.checked) state.seasons.add(cb.dataset.season);
-    else state.seasons.delete(cb.dataset.season);
+    const s = cb.dataset.season;
+    if (s === 'LIVE' && cb.checked) {
+      // 勾「直播阵容」时清掉其它所有筛选；但不禁止之后再勾回来
+      state.seasons.clear();
+      state.seasons.add('LIVE');
+      $$('[data-season]').forEach(o => { if (o !== cb) o.checked = false; });
+    } else if (cb.checked) {
+      state.seasons.add(s);
+    } else {
+      state.seasons.delete(s);
+    }
     render();
   }));
   $('#fChampion').addEventListener('change', e => { state.championOnly = e.target.checked; render(); });
@@ -510,6 +568,70 @@ function bindEvents() {
       render();
       toast('名字已贡献');
     } catch (err) { toast(err.message); }
+  });
+
+  // 直播阵容：添加 / 改备注 / 删除
+  $('#btnAddLive').addEventListener('click', openLiveAdd);
+  $('#lvClose').addEventListener('click', () => $('#liveModal').classList.add('hidden'));
+  $('#liveModal').addEventListener('click', e => { if (e.target.id === 'liveModal') $('#liveModal').classList.add('hidden'); });
+  $('#lvLoginLink').addEventListener('click', e => {
+    e.preventDefault();
+    $('#liveModal').classList.add('hidden');
+    openAuth();
+  });
+  $('#lvForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const text = $('#lvText').value.trim();
+    const remark = $('#lvRemark').value.trim();
+    if (!text) { $('#lvMsg').textContent = '请填写阵容组成'; return; }
+    try {
+      const r = await api('/api/live-lineups', { method: 'POST', body: { text, remark } });
+      mergeLineup(r.lineup);
+      $('#lvText').value = ''; $('#lvRemark').value = '';
+      $('#lvMsg').textContent = '';
+      $('#liveModal').classList.add('hidden');
+      render();
+      toast('直播阵容已添加');
+    } catch (err) { $('#lvMsg').textContent = err.message; }
+  });
+
+  $('#mRemarkEdit').addEventListener('click', () => {
+    if (!state.me.user && !state.me.admin) { toast('请先登录后再编辑备注'); openAuth(); return; }
+    const l = state.lineups.find(x => x.key === state.modalKey);
+    if (!l) return;
+    $('#mRemarkInput').value = l.remark || '';
+    $('#mRemarkForm').classList.remove('hidden');
+    $('#mRemarkInput').focus();
+  });
+  $('#mRemarkCancel').addEventListener('click', () => $('#mRemarkForm').classList.add('hidden'));
+  $('#mRemarkSave').addEventListener('click', async () => {
+    const key = state.modalKey;
+    if (!key) return;
+    try {
+      const r = await api(`/api/live-lineups/${encodeURIComponent(key)}`, {
+        method: 'PUT', body: { remark: $('#mRemarkInput').value },
+      });
+      mergeLineup(r.lineup);
+      renderLiveBlock(r.lineup);
+      render();
+      toast('备注已更新');
+    } catch (e) { toast(e.message); }
+  });
+  $('#mDelLive').addEventListener('click', async () => {
+    const key = state.modalKey;
+    if (!key) return;
+    const count = (state.namesByKey.get(key) || []).length;
+    const tip = count ? `确定删除这个直播阵容吗？它的 ${count} 个名字也会一起删除。` : '确定删除这个直播阵容吗？';
+    if (!confirm(tip)) return;
+    try {
+      await api(`/api/live-lineups/${encodeURIComponent(key)}`, { method: 'DELETE' });
+      state.lineups = state.lineups.filter(x => x.key !== key);
+      state.names = state.names.filter(x => x.lineupKey !== key);
+      buildIndex();
+      closeModal();
+      render();
+      toast('已删除');
+    } catch (e) { toast(e.message); }
   });
 
   $('#btnLogin').addEventListener('click', openAuth);

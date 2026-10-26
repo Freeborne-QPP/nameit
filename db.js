@@ -47,6 +47,15 @@ function openDb(dataDir) {
       updated_at TEXT NOT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_lineup_edits_row ON lineup_edits(row);
+    -- 直播阵容：独立于正赛赛季，没有编号；观众自己添加/删除，备注所有人可改
+    CREATE TABLE IF NOT EXISTS live_lineups (
+      key TEXT PRIMARY KEY,
+      text TEXT NOT NULL,
+      remark TEXT NOT NULL DEFAULT '',
+      author_id INTEGER,
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL
+    );
   `);
   return db;
 }
