@@ -40,30 +40,9 @@ function rowOrder(row) {
 const orderOf = l => (l.order != null ? l.order : rowOrder(l.row));
 
 // 直播阵容：独立分类，排在最末（筛选里「直播阵容」默认不勾选）
+// 初始不预置任何直播阵容，全部由观众自己添加
 const LIVE_SEASON = 'LIVE';
 const LIVE_ORDER_BASE = 1e6;
-
-// 首次启动时放一个初始直播阵容（组成「星吸寒伞曾」、备注「40连擂」），
-// 并挂一条初始投稿名字「北极星」（需要作者，所以建一个「系统」账号来挂）
-function seedLiveLineups() {
-  const c = db.prepare('SELECT COUNT(*) AS c FROM live_lineups').get().c;
-  if (c) return;
-  const now = new Date().toISOString();
-  const key = 'live-' + crypto.randomBytes(6).toString('hex');
-  db.prepare('INSERT INTO live_lineups (key, text, remark, author_id, created_at, updated_at) VALUES (?,?,?,NULL,?,?)')
-    .run(key, '星吸寒伞曾', '40连擂', now, now);
-
-  let sys = db.prepare('SELECT id FROM users WHERE nickname = ?').get('系统');
-  if (!sys) {
-    const salt = crypto.randomBytes(16).toString('hex');
-    const info = db.prepare('INSERT INTO users (nickname, pass_hash, pass_salt, created_at) VALUES (?,?,?,?)')
-      .run('系统', hashPassword(crypto.randomBytes(16).toString('hex'), salt), salt, now);
-    sys = { id: Number(info.lastInsertRowid) };
-  }
-  db.prepare('INSERT INTO names (lineup_key, name, origin, author_id, created_at, updated_at) VALUES (?,?,?,?,?,?)')
-    .run(key, '北极星', '', sys.id, now, now);
-}
-seedLiveLineups();
 
 // 把 SQLite 里的「覆盖层」合并进内存阵容数据：
 // - 已存在的阵容：覆盖文本与冠军/首败标记（key 不变，所以名字和点赞都还在）
