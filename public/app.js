@@ -88,6 +88,8 @@ function rowOrder(row) {
   const n = Number(row);
   return Number.isFinite(n) ? n : 0;
 }
+// 带 order 的条目（如场务）按指定位置排，其余按期号
+const orderOf = l => (l.order != null ? l.order : rowOrder(l.row));
 
 function filterLineups() {
   const num = state.number.trim();
@@ -97,7 +99,7 @@ function filterLineups() {
     if (!state.seasons.has(l.season)) return false;
     if (state.championOnly && !l.isChampion) return false;
     if (num && !String(l.row).includes(num)) return false;
-    if (kw && !l.search.includes(kw)) return false;
+    if (kw && !l.search.includes(kw) && !norm(l.label || '').includes(kw)) return false;
     return true;
   });
 }
@@ -118,7 +120,7 @@ function cardHtml(l) {
   const label = !ncount ? '还没有名字'
     : (ncount === 1 ? `已有 ${escapeHtml(top.name)}` : `已有 ${escapeHtml(top.name)} 等 ${ncount} 个名字`);
   return `<div class="card ${l.isChampion ? 'champ' : ''}" data-key="${l.key}">
-    <div class="card-head"><span class="card-key">${l.key}</span>${badges}</div>
+    <div class="card-head"><span class="card-key">${escapeHtml(l.label || l.key)}</span>${badges}</div>
     <div class="card-text">${escapeHtml(l.text)}</div>
     <div class="card-names ${ncount ? 'has' : ''}">${label}</div>
   </div>`;
@@ -174,7 +176,7 @@ function renderRanks() {
   } else if (state.sort === 'time-asc') {
     list.sort((a, b) => latestTimeOf(a.key) - latestTimeOf(b.key) || a.key.localeCompare(b.key));
   } else {
-    list.sort((a, b) => rowOrder(a.row) - rowOrder(b.row) || a.col - b.col);
+    list.sort((a, b) => orderOf(a) - orderOf(b) || a.col - b.col);
   }
   const wrap = $('#rankList');
   if (!list.length) { wrap.innerHTML = ''; $('#rankEmpty').classList.remove('hidden'); return; }
@@ -185,7 +187,7 @@ function renderRanks() {
       (l.isShoubai ? '<span class="badge sb">败</span>' : '');
     return `<div class="rank-item" data-key="${l.key}">
       <div class="rank-side" data-open="${l.key}">
-        <div class="rank-key">${l.key} ${badges}</div>
+        <div class="rank-key">${escapeHtml(l.label || l.key)} ${badges}</div>
         <div class="rank-text">${escapeHtml(l.text)}</div>
       </div>
       <div class="rank-names">${names.map(n => nameItemHtml(n)).join('')}</div>
@@ -225,7 +227,7 @@ function editItemHtml(l) {
     ? '<span class="badge new">新增</span>'
     : (l.edited ? '<span class="badge edited">已改</span>' : '');
   return `<div class="edit-item" data-key="${l.key}">
-    <div class="edit-key">${l.key} ${tag}</div>
+    <div class="edit-key">${escapeHtml(l.label || l.key)} ${tag}</div>
     <input class="inp edit-text" value="${escapeHtml(l.text)}" maxlength="100">
     <label class="chip"><input type="checkbox" class="edit-champ" ${l.isChampion ? 'checked' : ''}> 冠</label>
     <label class="chip"><input type="checkbox" class="edit-sb" ${l.isShoubai ? 'checked' : ''}> 败</label>
@@ -388,7 +390,7 @@ function openModal(key) {
   const l = state.lineups.find(x => x.key === key);
   if (!l) return;
   state.modalKey = key;
-  $('#mKey').innerHTML = `${l.key} ${l.isChampion ? '<span class="badge champ">冠军</span>' : ''}${l.isShoubai ? ' <span class="badge sb">首败</span>' : ''}`;
+  $('#mKey').innerHTML = `${escapeHtml(l.label || l.key)} ${l.isChampion ? '<span class="badge champ">冠军</span>' : ''}${l.isShoubai ? ' <span class="badge sb">首败</span>' : ''}`;
   $('#mText').textContent = l.text;
   renderModalNames();
   $('#modal').classList.remove('hidden');

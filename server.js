@@ -36,6 +36,8 @@ function rowOrder(row) {
   const n = Number(row);
   return Number.isFinite(n) ? n : 0;
 }
+// 带 order 的条目（如场务）按指定位置排，其余按期号
+const orderOf = l => (l.order != null ? l.order : rowOrder(l.row));
 
 // 把 SQLite 里的「覆盖层」合并进内存阵容数据：
 // - 已存在的阵容：覆盖文本与冠军/首败标记（key 不变，所以名字和点赞都还在）
@@ -62,7 +64,7 @@ function rebuildLineups() {
     }
   }
   const all = [...byKey.values(), ...extras];
-  all.sort((a, b) => rowOrder(a.row) - rowOrder(b.row) || a.col - b.col);
+  all.sort((a, b) => orderOf(a) - orderOf(b) || a.col - b.col);
   lineupData.lineups = all;
   lineupByKey = new Map(all.map(l => [l.key, l]));
 }
