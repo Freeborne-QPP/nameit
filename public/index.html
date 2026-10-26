@@ -10,9 +10,11 @@
   <!-- 小彩蛋：1% 概率进来先只看到这张图，5 秒后自动进入网站 -->
   <div id="easterEgg" class="easter hidden"><img src="easter.jpg" alt=""></div>
   <script>
+    window.__eggDelay = 0;
     if (Math.random() < 0.05) {
       var egg = document.getElementById('easterEgg');
       egg.classList.remove('hidden');
+      window.__eggDelay = 5000;
       setTimeout(function () { egg.remove(); }, 5000);
     }
   </script>
@@ -174,6 +176,21 @@
           <button type="submit" class="btn">修改管理员密码</button>
           <div id="ampMsg" class="errmsg"></div>
         </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- 更新公告（仅 2026-10-27 当天显示） -->
+  <div id="noticeModal" class="modal-mask hidden">
+    <div class="modal small notice">
+      <div class="modal-head">
+        <div class="modal-title">更新公告</div>
+      </div>
+      <div class="modal-body">
+        <p class="notice-text">取名网站已支持S7加时赛的三支场务队伍，大家也可以投稿命名</p>
+        <div class="btnrow">
+          <button class="btn primary" id="noticeOk">确定</button>
+        </div>
       </div>
     </div>
   </div>

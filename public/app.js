@@ -571,4 +571,20 @@ function bindEvents() {
 }
 
 bindEvents();
+
+// ---------- 更新公告（仅 2026-10-27 当天显示；有彩蛋时等彩蛋播完） ----------
+function beijingDate() {
+  const d = new Date(Date.now() + 8 * 3600 * 1000);
+  const p = n => String(n).padStart(2, '0');
+  return `${d.getUTCFullYear()}-${p(d.getUTCMonth() + 1)}-${p(d.getUTCDate())}`;
+}
+function setupNotice() {
+  if (beijingDate() !== '2026-10-27') return;
+  const show = () => $('#noticeModal').classList.remove('hidden');
+  const delay = window.__eggDelay || 0;
+  if (delay > 0) setTimeout(show, delay);
+  else show();
+  $('#noticeOk').addEventListener('click', () => $('#noticeModal').classList.add('hidden'));
+}
+setupNotice();
 loadAll();

@@ -178,6 +178,8 @@ textarea.inp { resize: vertical; font-family: inherit; }
 .needlogin a { color: var(--grass-dark); }
 .errmsg { color: var(--danger); font-size: 13px; margin-top: 8px; min-height: 0; }
 .btnrow { display: flex; gap: 8px; margin-top: 4px; }
+.notice-text { font-size: 15px; line-height: 1.7; margin: 0 0 16px; }
+.notice .btnrow { justify-content: flex-end; margin-top: 0; }
 
 /* 编辑阵容（管理员） */
 .edit-sec {
