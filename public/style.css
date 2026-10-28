@@ -138,10 +138,11 @@ textarea.inp { resize: vertical; font-family: inherit; }
 .live-remark-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .live-label { font-size: 12px; color: #6a5aa8; font-weight: 700; }
 .live-remark-text { font-size: 14px; flex: 1; min-width: 80px; word-break: break-all; }
-#mRemarkForm { display: flex; gap: 8px; align-items: flex-start; margin-top: 8px; flex-wrap: wrap; }
-#mRemarkForm .inp { flex: 1; min-width: 160px; }
-#mRemarkForm .btnrow { margin-top: 0; }
+#mRemarkForm, #mTextForm { display: flex; gap: 8px; align-items: flex-start; margin-top: 8px; flex-wrap: wrap; }
+#mRemarkForm .inp, #mTextForm .inp { flex: 1; min-width: 160px; }
+#mRemarkForm .btnrow, #mTextForm .btnrow { margin-top: 0; }
 .live-block .btnrow { margin-top: 8px; }
+.confirm-btns { justify-content: flex-end; margin-top: 0; }
 
 /* 名字榜 */
 .ranklist { display: flex; flex-direction: column; gap: 10px; }

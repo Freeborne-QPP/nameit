@@ -128,14 +128,22 @@
             <span id="mRemark" class="live-remark-text"></span>
             <button class="btn small" id="mRemarkEdit">编辑备注</button>
           </div>
-          <div id="mRemarkForm" class="hidden">
+          <div id="mRemarkForm" class="live-form hidden">
             <input type="text" id="mRemarkInput" class="inp" maxlength="200" placeholder="备注（所有人可编辑）">
             <div class="btnrow">
               <button class="btn small primary" id="mRemarkSave">保存</button>
               <button class="btn small" id="mRemarkCancel">取消</button>
             </div>
           </div>
-          <div id="mDelLiveWrap" class="btnrow hidden">
+          <div id="mTextForm" class="live-form hidden">
+            <input type="text" id="mTextInput" class="inp" maxlength="100" placeholder="阵容组成">
+            <div class="btnrow">
+              <button class="btn small primary" id="mTextSave">保存</button>
+              <button class="btn small" id="mTextCancel">取消</button>
+            </div>
+          </div>
+          <div id="mLiveActions" class="btnrow hidden">
+            <button class="btn small" id="mTextEdit">编辑阵容组成</button>
             <button class="btn small danger" id="mDelLive">删除这个直播阵容</button>
           </div>
         </div>
@@ -173,6 +181,22 @@
           </div>
           <div id="lvMsg" class="errmsg"></div>
         </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- 通用确认弹窗（删除直播阵容前二次确认） -->
+  <div id="confirmModal" class="modal-mask hidden">
+    <div class="modal small">
+      <div class="modal-head">
+        <div class="modal-title" id="cfTitle">确认</div>
+      </div>
+      <div class="modal-body">
+        <p class="notice-text" id="cfText"></p>
+        <div class="btnrow confirm-btns">
+          <button class="btn" id="cfCancel">取消</button>
+          <button class="btn danger" id="cfOk">确定</button>
+        </div>
       </div>
     </div>
   </div>

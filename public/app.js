@@ -5,7 +5,7 @@ const $ = sel => document.querySelector(sel);
 const $$ = sel => [...document.querySelectorAll(sel)];
 
 const CLEAN = { '缠': '草', '盏': '金', '花': '金', '晶': '若', '钻': '若', '胖': '坚', '竹': '奶' };
-const EXTRA = { '水': '草', '豌': '狙', '刀': '寒', '舟': '灯', '锔': '曾', '信': '双', 'R': '雷', '丨': '麦', '羽': '藤', '棍': '麦' };
+const EXTRA = { '水': '草', '豌': '狙', '刀': '寒', '舟': '灯', '锔': '曾', '信': '双', 'R': '雷', '丨': '麦', '羽': '藤', '棍': '麦', '内': '机' };
 
 // 搜索归一化：与后端一致（清洗 + 同字替换 + 去标点）
 function norm(s) {
@@ -421,15 +421,16 @@ function openModal(key) {
   $('#modal').classList.remove('hidden');
 }
 
-// 直播阵容专属：备注（所有人可编辑）+ 删除（仅添加者/管理员）
+// 直播阵容专属：备注（所有人可编辑）+ 编辑组成/删除（添加者或管理员）
 function renderLiveBlock(l) {
   const isLive = !!l.isLive;
   $('#mLive').classList.toggle('hidden', !isLive);
   if (!isLive) return;
   $('#mRemark').textContent = l.remark || '—';
   $('#mRemarkForm').classList.add('hidden');
+  $('#mTextForm').classList.add('hidden');
   const mine = !!((state.me.admin) || (state.me.user && l.authorId === state.me.user.id));
-  $('#mDelLiveWrap').classList.toggle('hidden', !mine);
+  $('#mLiveActions').classList.toggle('hidden', !mine);
 }
 
 function renderModalNames() {
@@ -491,6 +492,20 @@ function openAuth() {
   $('#authModal').classList.remove('hidden');
 }
 function closeAuth() { $('#authModal').classList.add('hidden'); }
+
+// ---------- 通用确认弹窗（替代浏览器原生 confirm，避免误删） ----------
+let confirmResolve = null;
+function askConfirm({ title, text, okText }) {
+  $('#cfTitle').textContent = title || '确认';
+  $('#cfText').textContent = text || '';
+  $('#cfOk').textContent = okText || '确定';
+  $('#confirmModal').classList.remove('hidden');
+  return new Promise(resolve => { confirmResolve = resolve; });
+}
+function settleConfirm(value) {
+  $('#confirmModal').classList.add('hidden');
+  if (confirmResolve) { confirmResolve(value); confirmResolve = null; }
+}
 
 // 添加直播阵容（需登录；「删除自己添加的」需要身份，所以不强求匿名）
 function openLiveAdd() {
@@ -617,12 +632,43 @@ function bindEvents() {
       toast('备注已更新');
     } catch (e) { toast(e.message); }
   });
+  $('#mTextEdit').addEventListener('click', () => {
+    if (!state.me.user && !state.me.admin) { toast('请先登录后再编辑'); openAuth(); return; }
+    const l = state.lineups.find(x => x.key === state.modalKey);
+    if (!l) return;
+    $('#mRemarkForm').classList.add('hidden');
+    $('#mTextInput').value = l.text;
+    $('#mTextForm').classList.remove('hidden');
+    $('#mTextInput').focus();
+  });
+  $('#mTextCancel').addEventListener('click', () => $('#mTextForm').classList.add('hidden'));
+  $('#mTextSave').addEventListener('click', async () => {
+    const key = state.modalKey;
+    if (!key) return;
+    const text = $('#mTextInput').value.trim();
+    if (!text) { toast('阵容组成不能为空'); return; }
+    try {
+      const r = await api(`/api/live-lineups/${encodeURIComponent(key)}`, { method: 'PUT', body: { text } });
+      mergeLineup(r.lineup);
+      openModal(key); // 重新渲染标题与组成
+      render();
+      toast('阵容组成已更新');
+    } catch (e) { toast(e.message); }
+  });
   $('#mDelLive').addEventListener('click', async () => {
     const key = state.modalKey;
     if (!key) return;
+    const l = state.lineups.find(x => x.key === key);
+    if (!l) return;
     const count = (state.namesByKey.get(key) || []).length;
-    const tip = count ? `确定删除这个直播阵容吗？它的 ${count} 个名字也会一起删除。` : '确定删除这个直播阵容吗？';
-    if (!confirm(tip)) return;
+    const ok = await askConfirm({
+      title: '删除直播阵容',
+      text: count
+        ? `确定删除「${l.text}」吗？它下面的 ${count} 个名字（含点赞）也会一起删除，删除后无法恢复。`
+        : `确定删除「${l.text}」吗？删除后无法恢复。`,
+      okText: '确定删除',
+    });
+    if (!ok) return;
     try {
       await api(`/api/live-lineups/${encodeURIComponent(key)}`, { method: 'DELETE' });
       state.lineups = state.lineups.filter(x => x.key !== key);
@@ -633,6 +679,11 @@ function bindEvents() {
       toast('已删除');
     } catch (e) { toast(e.message); }
   });
+
+  // 确认弹窗
+  $('#cfOk').addEventListener('click', () => settleConfirm(true));
+  $('#cfCancel').addEventListener('click', () => settleConfirm(false));
+  $('#confirmModal').addEventListener('click', e => { if (e.target.id === 'confirmModal') settleConfirm(false); });
 
   $('#btnLogin').addEventListener('click', openAuth);
   $('#aClose').addEventListener('click', closeAuth);
