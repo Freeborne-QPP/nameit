@@ -231,9 +231,12 @@ function latestTimeOf(key) {
 
 // ---------- 编辑阵容（管理员） ----------
 function renderEdit() {
-  const kw = norm(state.editKeyword.trim());
+  const raw = state.editKeyword.trim();
+  const kw = norm(raw);
   // 直播阵容由观众自己管理（卡片里删改），不进管理员编辑列表
-  let list = state.lineups.filter(l => !l.isLive && (!kw || l.search.includes(kw) || l.key.includes(kw)));
+  // 编号用原始输入匹配（R3 / J2 才能搜到），文字用归一化后的关键字
+  let list = state.lineups.filter(l => !l.isLive &&
+    (!raw || l.search.includes(kw) || l.key.toLowerCase().includes(raw.toLowerCase())));
   const tooMany = list.length > 100;
   if (tooMany) list = list.slice(0, 100);
   $('#editMore').classList.toggle('hidden', !tooMany);
@@ -725,10 +728,14 @@ function bindEvents() {
   // 编辑阵容（管理员）
   $('#eSearch').addEventListener('input', e => { state.editKeyword = e.target.value; renderEdit(); });
   $('#eAdd').addEventListener('click', async () => {
-    const row = Number($('#eRow').value);
+    const rawRow = $('#eRow').value.trim();
     const text = $('#eText').value.trim();
     $('#eAddMsg').textContent = '';
-    if (!Number.isInteger(row) || row < 1) { $('#eAddMsg').textContent = '请填写正确的期号'; return; }
+    // 期号可以是数字，也可以是 R1-R20 / J1-J5
+    let row = null;
+    if (/^\d+$/.test(rawRow)) row = Number(rawRow);
+    else if (/^(R|J)\d+$/i.test(rawRow)) row = rawRow.toUpperCase();
+    if (row === null) { $('#eAddMsg').textContent = '请填写正确的期号，如 148 / R3'; return; }
     if (!text) { $('#eAddMsg').textContent = '请填写阵容文本'; return; }
     try {
       await api('/api/admin/lineups', {

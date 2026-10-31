@@ -328,12 +328,21 @@ app.put('/api/admin/lineups/:key', (req, res) => {
   res.json({ lineup: lineupByKey.get(key) });
 });
 
+// 期号：数字期号（1、148…）或字符串期号（R1-R20、J1-J5）
+function parseRow(raw) {
+  if (typeof raw === 'number' && Number.isInteger(raw)) return raw;
+  const s = String(raw == null ? '' : raw).trim();
+  if (/^\d+$/.test(s)) return Number(s);
+  if (/^(R|J)\d+$/i.test(s)) return s.toUpperCase();
+  return null;
+}
+
 // 给某一期追加一个新阵容（自动接在该期末尾）
 app.post('/api/admin/lineups', (req, res) => {
   if (!requireAdmin(req, res)) return;
-  const row = Number(req.body.row);
-  if (!Number.isInteger(row) || !baseRows.has(row)) {
-    return res.status(400).json({ error: '期号不存在，请填写已有的期号' });
+  const row = parseRow(req.body.row);
+  if (row === null || !baseRows.has(row)) {
+    return res.status(400).json({ error: '期号不存在，请填写已有的期号（如 148 / R3）' });
   }
   const parsed = readLineupText(req.body);
   if (parsed.error) return res.status(400).json({ error: parsed.error });
